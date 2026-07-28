@@ -14,15 +14,15 @@
     </linearGradient>
   </defs>
 
-  <!-- VSCode icon (ribbon) -->
-  <path d="M 8 38 L 34 24 L 34 104 L 8 90 L 24 64 Z"
+  <!-- VSCode icon: top-left -->
+  <path d="M 10 22 L 46 6 L 46 74 L 10 58 L 28 40 Z"
         fill="url(#vsBlue)"/>
 
-  <!-- Vim icon (green diamond with silver border) -->
+  <!-- Vim icon: bottom-right (diagonal) -->
   <g>
-    <path d="M 86 16 L 118 64 L 86 112 L 54 64 Z" fill="url(#vimBorder)"/>
-    <path d="M 86 24 L 111 64 L 86 104 L 61 64 Z" fill="url(#vimGreen)"/>
-    <text x="86" y="72" font-family="Helvetica, Arial, sans-serif" font-size="20"
+    <path d="M 92 50 L 126 86 L 92 122 L 58 86 Z" fill="url(#vimBorder)"/>
+    <path d="M 92 57 L 119 86 L 92 115 L 65 86 Z" fill="url(#vimGreen)"/>
+    <text x="92" y="92" font-family="Helvetica, Arial, sans-serif" font-size="16"
           font-weight="bold" fill="#ffffff" text-anchor="middle">VIM</text>
   </g>
 </svg>

@@ -2,7 +2,7 @@
   "name": "lazycode",
   "displayName": "LazyCode \u2014 LazyVim keybindings for VSCode",
   "description": "A from-scratch vim engine (no Neovim, no Lua) with LazyVim-style keybindings mapped onto native VSCode commands.",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "publisher": "sachchidanandk",
   "license": "MIT",
   "engines": {
