@@ -157,3 +157,70 @@ export function parsedKeymaps(): Array<{ keys: string[]; entry: KeymapEntry }> {
     entry,
   }));
 }
+
+// ── user overrides (lazycode.keymapOverrides) ────────────────────────────────
+
+export type KeymapOverrideValue =
+  | string // "workbench.action.quickOpen"
+  | { command: string; args?: unknown[]; description?: string }
+  | false // remove the default binding at this key
+  | null;
+
+export interface ParsedOverrides {
+  readonly bind: Array<{ keys: string[]; entry: KeymapEntry }>;
+  readonly unbind: string[][];
+}
+
+/** Parse the raw settings object; invalid key strings are skipped silently. */
+export function parseOverrides(raw: Record<string, unknown>): ParsedOverrides {
+  const bind: Array<{ keys: string[]; entry: KeymapEntry }> = [];
+  const unbind: string[][] = [];
+  for (const [keys, value] of Object.entries(raw)) {
+    let parsed: string[];
+    try {
+      parsed = parseKeySequence(keys);
+    } catch {
+      continue; // invalid notation — ignore
+    }
+    if (value === false || value === null) {
+      unbind.push(parsed);
+      continue;
+    }
+    if (typeof value === 'string' && value.length > 0) {
+      bind.push({
+        keys: parsed,
+        entry: { keys, binding: { kind: 'vscode', command: value }, description: value },
+      });
+      continue;
+    }
+    if (typeof value === 'object' && value !== null) {
+      const v = value as { command?: unknown; args?: unknown[]; description?: string };
+      if (typeof v.command === 'string' && v.command.length > 0) {
+        bind.push({
+          keys: parsed,
+          entry: {
+            keys,
+            binding: { kind: 'vscode', command: v.command, args: v.args },
+            description: v.description ?? v.command,
+          },
+        });
+      }
+    }
+  }
+  return { bind, unbind };
+}
+
+const keysEqual = (a: readonly string[], b: readonly string[]): boolean =>
+  a.length === b.length && a.every((k, i) => k === b[i]);
+
+/** Apply overrides to the base table: unbind removes, bind replaces/appends. */
+export function mergeKeymapOverrides(
+  base: Array<{ keys: string[]; entry: KeymapEntry }>,
+  overrides: ParsedOverrides,
+): Array<{ keys: string[]; entry: KeymapEntry }> {
+  const withoutRemoved = base.filter((e) => !overrides.unbind.some((u) => keysEqual(u, e.keys)));
+  const withoutReplaced = withoutRemoved.filter(
+    (e) => !overrides.bind.some((b) => keysEqual(b.keys, e.keys)),
+  );
+  return [...withoutReplaced, ...overrides.bind];
+}

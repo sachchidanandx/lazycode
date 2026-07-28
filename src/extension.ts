@@ -3,7 +3,7 @@ import { ModeManager } from './core/mode/modeManager';
 import { BindingTrie } from './core/input/bindingTrie';
 import { Binding, KeystrokeRouter } from './core/router';
 import { keystrokeFromTypedText } from './core/input/keyNotation';
-import { parsedKeymaps } from './lazyvim/keymaps';
+import { mergeKeymapOverrides, parseOverrides, parsedKeymaps } from './lazyvim/keymaps';
 import { VsEditorContext } from './vs/vsEditorContext';
 import { NormalEngine } from './core/engine';
 import { WhichKeyPopup } from './vs/whichKeyPopup';
@@ -59,11 +59,14 @@ export function activate(context: vscode.ExtensionContext): void {
   );
   applyCursorStyle();
 
-  // Build the binding trie from the LazyVim keymap table.
-  // NOTE: Milestone 1 binds all entries globally; per-mode gating lands with
-  // the engine in Milestone 2 (entries already declare their modes).
+  // Build the binding trie from the LazyVim keymap table, then apply user
+  // overrides from lazycode.keymapOverrides (reload required to re-read).
+  const overrides = parseOverrides(
+    vscode.workspace.getConfiguration('lazycode').get<Record<string, unknown>>('keymapOverrides', {}),
+  );
+  const effectiveKeymaps = mergeKeymapOverrides(parsedKeymaps(), overrides);
   const trie = new BindingTrie<Binding>();
-  for (const { keys, entry } of parsedKeymaps()) {
+  for (const { keys, entry } of effectiveKeymaps) {
     trie.bind(keys, entry.binding);
   }
 
@@ -131,10 +134,9 @@ export function activate(context: vscode.ExtensionContext): void {
   });
 
   // Which-key popup: shows hints when a trie prefix (e.g. <leader>) is pending.
-  const parsed = parsedKeymaps();
   const whichKeyPopup = new WhichKeyPopup({
     delay: vscode.workspace.getConfiguration('lazycode').get<number>('whichKeyDelay', 300),
-    resolveItems: (keys) => buildWhichKeyItems(keys, parsed, modeManager.current),
+    resolveItems: (keys) => buildWhichKeyItems(keys, effectiveKeymaps, modeManager.current),
     onTyped: (raw) => {
       void (async () => {
         try {
