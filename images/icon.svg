@@ -4,26 +4,25 @@
       <stop offset="0" stop-color="#37aaf2"/>
       <stop offset="1" stop-color="#0065a9"/>
     </linearGradient>
-    <linearGradient id="nvim" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#6cc644"/>
-      <stop offset="1" stop-color="#1f8ad6"/>
+    <linearGradient id="vimGreen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#019833"/>
+      <stop offset="1" stop-color="#017a29"/>
     </linearGradient>
-    <clipPath id="badgeClip">
-      <rect x="0" y="0" width="128" height="128" rx="24"/>
-    </clipPath>
+    <linearGradient id="vimBorder" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e8e8e8"/>
+      <stop offset="1" stop-color="#9a9a9a"/>
+    </linearGradient>
   </defs>
 
-  <!-- badge background -->
-  <g clip-path="url(#badgeClip)">
-    <rect width="128" height="128" fill="#17191d"/>
-  </g>
-
-  <!-- VSCode ribbon -->
-  <path d="M 22 32 L 48 18 L 48 110 L 22 96 L 36 64 Z"
+  <!-- VSCode icon (ribbon) -->
+  <path d="M 8 38 L 34 24 L 34 104 L 8 90 L 24 64 Z"
         fill="url(#vsBlue)"/>
 
-  <!-- Neovim N -->
-  <path d="M 70 98 L 70 30 L 104 98 L 104 30"
-        fill="none" stroke="url(#nvim)" stroke-width="12"
-        stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Vim icon (green diamond with silver border) -->
+  <g>
+    <path d="M 86 16 L 118 64 L 86 112 L 54 64 Z" fill="url(#vimBorder)"/>
+    <path d="M 86 24 L 111 64 L 86 104 L 61 64 Z" fill="url(#vimGreen)"/>
+    <text x="86" y="72" font-family="Helvetica, Arial, sans-serif" font-size="20"
+          font-weight="bold" fill="#ffffff" text-anchor="middle">VIM</text>
+  </g>
 </svg>
