@@ -87,10 +87,10 @@ export const LAZYVIM_KEYMAPS: readonly KeymapEntry[] = [
   { keys: ']d', binding: vscode('editor.action.marker.next'), description: 'Next diagnostic' },
 
   // ── git (LazyVim: <leader>gg, <leader>gb, ]h/[h via gitsigns) ────────────
-  { keys: '<leader>gg', binding: vscode('workbench.view.scm'), description: 'Source Control' },
+  { keys: '<leader>gg', binding: vscode('lazycode.openSourceControl'), description: 'Source Control' },
   { keys: '<leader>gb', binding: vscode('git.blame.toggleEditorDecoration'), description: 'Blame line' },
-  { keys: ']h', binding: vscode('editor.action.dirtydiff.next'), description: 'Next hunk' },
-  { keys: '[h', binding: vscode('editor.action.dirtydiff.prev'), description: 'Prev hunk' },
+  { keys: '<leader>ghs', binding: vscode('git.stageSelectedRanges'), description: 'Stage hunk' },
+  { keys: '<leader>ghu', binding: vscode('git.unstageSelectedRanges'), description: 'Unstage hunk' },
 
   // ── debug (LazyVim: <leader>db, <leader>dc) ──────────────────────────────
   { keys: '<leader>db', binding: vscode('editor.debug.action.toggleBreakpoint'), description: 'Toggle breakpoint' },
@@ -135,7 +135,9 @@ export const LAZYVIM_KEYMAPS: readonly KeymapEntry[] = [
  *  <leader>L (changelog)   — LazyVim-internal
  *  <leader>xl (loclist)    — VSCode has one list (Problems) → <leader>xq
  *  ]e/[e ]w/[w (severity-filtered diagnostic jumps) — marker nav can't filter
- *  gitsigns stage/reset hunk (<leader>ghs/ghr) — no granular native commands
+ *  gitsigns reset hunk (<leader>ghr) — git.revertSelectedRanges is destructive
+ *    and was not requested; stage/unstage ARE mapped (<leader>ghs/ghu)
+ *  ]h/[h (hunk navigation) — dropped per user request
  *  <leader>wm (zoom window) — no confident native command
  *  <leader><tab>f/l (first/last tab) — no confident native command
  *  <C-/> (terminal)        — conflicts with native comment binding; use <leader>ft

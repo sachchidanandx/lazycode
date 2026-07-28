@@ -200,6 +200,17 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('lazycode.enterVisualLineMode', () => {
       modeManager.transition('VisualLine');
     }),
+    // <leader>gg: open + focus the Source Control view, with a visible error
+    // instead of silent failure if the command id ever changes.
+    vscode.commands.registerCommand('lazycode.openSourceControl', async () => {
+      try {
+        await vscode.commands.executeCommand('workbench.view.scm');
+      } catch (err) {
+        void vscode.window.showErrorMessage(
+          `LazyCode: could not open Source Control (${String(err)}). Is the git extension enabled?`,
+        );
+      }
+    }),
     vscode.commands.registerCommand('lazycode.toggleExplorer', async () => {
       let focused = explorerFocused;
       try {
