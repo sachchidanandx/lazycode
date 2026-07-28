@@ -1,0 +1,162 @@
+{
+  "name": "lazycode",
+  "displayName": "LazyCode \u2014 LazyVim keybindings for VSCode",
+  "description": "A from-scratch vim engine (no Neovim, no Lua) with LazyVim-style keybindings mapped onto native VSCode commands.",
+  "version": "1.0.0",
+  "publisher": "sachchidanandk",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Keymaps",
+    "Editing"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "lazycode.enterNormalMode",
+        "title": "LazyCode: Enter Normal Mode"
+      },
+      {
+        "command": "lazycode.enterInsertMode",
+        "title": "LazyCode: Enter Insert Mode"
+      },
+      {
+        "command": "lazycode.enterVisualMode",
+        "title": "LazyCode: Enter Visual Mode"
+      },
+      {
+        "command": "lazycode.enterVisualLineMode",
+        "title": "LazyCode: Enter Visual Line Mode"
+      },
+      {
+        "command": "lazycode.toggleExplorer",
+        "title": "LazyCode: Toggle Explorer Focus"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "lazycode.enterNormalMode",
+        "key": "escape",
+        "when": "editorTextFocus && lazycode.mode != 'Normal'"
+      },
+      {
+        "command": "lazycode.enterNormalMode",
+        "key": "escape",
+        "when": "editorTextFocus && lazycode.mode == 'Normal' && !findWidgetVisible && !suggestWidgetVisible && !inSnippetMode"
+      },
+      {
+        "command": "redo",
+        "key": "ctrl+r",
+        "when": "editorTextFocus && lazycode.mode == 'Normal'"
+      },
+      {
+        "command": "workbench.action.navigateBack",
+        "key": "ctrl+o",
+        "when": "lazycode.mode == 'Normal'"
+      },
+      {
+        "command": "workbench.action.navigateForward",
+        "key": "ctrl+i",
+        "when": "lazycode.mode == 'Normal'"
+      },
+      {
+        "command": "workbench.action.splitEditorRight",
+        "key": "ctrl+w v",
+        "when": "lazycode.mode == 'Normal'"
+      },
+      {
+        "command": "workbench.action.splitEditorDown",
+        "key": "ctrl+w s",
+        "when": "lazycode.mode == 'Normal'"
+      },
+      {
+        "command": "list.find",
+        "key": "/",
+        "when": "filesExplorerFocus && !inputFocus"
+      },
+      {
+        "command": "list.find",
+        "key": "?",
+        "when": "filesExplorerFocus && !inputFocus"
+      },
+      {
+        "command": "list.focusDown",
+        "key": "j",
+        "when": "filesExplorerFocus && !inputFocus"
+      },
+      {
+        "command": "list.focusUp",
+        "key": "k",
+        "when": "filesExplorerFocus && !inputFocus"
+      },
+      {
+        "command": "list.collapse",
+        "key": "h",
+        "when": "filesExplorerFocus && !inputFocus"
+      },
+      {
+        "command": "list.select",
+        "key": "l",
+        "when": "filesExplorerFocus && !inputFocus"
+      },
+      {
+        "command": "list.focusFirst",
+        "key": "g g",
+        "when": "filesExplorerFocus && !inputFocus"
+      },
+      {
+        "command": "list.focusLast",
+        "key": "shift+g",
+        "when": "filesExplorerFocus && !inputFocus"
+      }
+    ],
+    "configuration": {
+      "title": "LazyCode",
+      "properties": {
+        "lazycode.leaderKey": {
+          "type": "string",
+          "default": "<space>",
+          "description": "Leader key used for LazyVim-style mappings."
+        },
+        "lazycode.whichKey": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a which-key style popup for pending leader sequences."
+        },
+        "lazycode.whichKeyDelay": {
+          "type": "number",
+          "default": 300,
+          "description": "Delay in ms before the which-key popup appears."
+        },
+        "lazycode.keymapOverrides": {
+          "type": "object",
+          "default": {},
+          "description": "User overrides: { \"<leader>ff\": \"workbench.action.quickOpen\" }"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap",
+    "watch": "npm run build -- --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "@types/vscode": "^1.85.0",
+    "@vscode/test-electron": "^2.3.9",
+    "esbuild": "^0.20.2",
+    "typescript": "^5.4.5",
+    "vitest": "^1.5.0"
+  },
+  "icon": "images/icon.png"
+}
