@@ -72,6 +72,26 @@ export class VsEditorContext implements EditorContext {
     this.editor.revealRange(new vscode.Range(active, active));
   }
 
+  /** Viewport in logical lines — backs H/M/L and page-scroll amounts. */
+  getVisibleLineRange(): { start: number; end: number } {
+    const ranges = this.editor.visibleRanges;
+    if (ranges.length === 0) return { start: 0, end: 0 };
+    return {
+      start: ranges[0].start.line,
+      end: ranges[ranges.length - 1].end.line,
+    };
+  }
+
+  /** View-only scroll (selection untouched); VSCode clamps at document bounds. */
+  scrollLines(delta: number): void {
+    if (delta === 0) return;
+    void vscode.commands.executeCommand('editorScroll', {
+      to: delta > 0 ? 'down' : 'up',
+      by: 'line',
+      value: Math.abs(delta),
+    });
+  }
+
   /** Display-line movement via VSCode's own cursor engine (handles wrapping). */
   async moveVisualLine(delta: number, select: boolean): Promise<void> {
     if (delta === 0) return;

@@ -202,6 +202,13 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('lazycode.enterVisualLineMode', () => {
       modeManager.transition('VisualLine');
     }),
+    // Generic forwarder for Ctrl chords bound in package.json (<C-d>/<C-u>/
+    // <C-f>/<C-b>): the `type` event never fires for Ctrl combos, so these
+    // arrive as commands and re-enter the normal router path.
+    vscode.commands.registerCommand('lazycode.key', async (args: { key: string }) => {
+      if (typeof args?.key !== 'string') return;
+      await withEditor((editor) => router.handleKeystroke(args.key, args.key, editor));
+    }),
     // <leader>gg: open + focus the Source Control view, with a visible error
     // instead of silent failure if the command id ever changes.
     vscode.commands.registerCommand('lazycode.openSourceControl', async () => {

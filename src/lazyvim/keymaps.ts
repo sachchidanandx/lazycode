@@ -48,11 +48,9 @@ export const LAZYVIM_KEYMAPS: readonly KeymapEntry[] = [
   { keys: '<leader>fn', binding: vscode('workbench.action.files.newUntitledFile'), description: 'New File' },
   { keys: '<leader>e', binding: vscode('lazycode.toggleExplorer'), description: 'Explorer (toggle focus)' },
 
-  // ── buffers (LazyVim: <S-h>/<S-l>, [b ]b, <leader>bo) ────────────────────
-  { keys: '<S-h>', binding: vscode('workbench.action.previousEditor'), description: 'Prev buffer' },
-  { keys: '<S-l>', binding: vscode('workbench.action.nextEditor'), description: 'Next buffer' },
-  { keys: '[b', binding: vscode('workbench.action.previousEditor'), description: 'Prev buffer' },
-  { keys: ']b', binding: vscode('workbench.action.nextEditor'), description: 'Next buffer' },
+  // ── buffers: ALL buffer-switcher bindings DROPPED ────────────────────────
+  // VSCode has tabs, not buffers. <S-h>/<S-l> would shadow vim's H/L screen
+  // motions; [b/]b were redundant per user. Tab navigation: gt/gT.
 
   // ── windows (LazyVim: <leader>w = <C-w> proxy, <leader>-, <leader>|) ─────
   // <leader>h/j/k/l: user-preferred window-group navigation (was <C-h/j/k/l>).

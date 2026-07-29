@@ -11,9 +11,10 @@ export class FakeEditorContext implements EditorContext {
   /** Number of applyEdits calls — lets tests assert the one-undo-stop invariant. */
   editBatchCount = 0;
 
-  constructor(text: string, cursor: Position = { line: 0, character: 0 }) {
+  constructor(text: string, cursor: Position = { line: 0, character: 0 }, viewportHeight = 20) {
     this.lines = text.split('\n');
     this.selections = [{ anchor: cursor, active: cursor }];
+    this.viewport = { start: 0, end: Math.min(viewportHeight - 1, this.lines.length - 1) };
   }
 
   getLineCount(): number {
@@ -91,7 +92,34 @@ export class FakeEditorContext implements EditorContext {
   }
 
   revealPrimaryCursor(): void {
-    // no-op headless
+    // Scroll the fake viewport minimally so the cursor is visible, like a
+    // real editor would.
+    const size = this.viewport.end - this.viewport.start;
+    const line = this.selections[0].active.line;
+    if (line < this.viewport.start) {
+      this.viewport = { start: line, end: line + size };
+    } else if (line > this.viewport.end) {
+      this.viewport = { start: line - size, end: line };
+    }
+  }
+
+  /** Fake viewport (inclusive end) for H/M/L and page-scroll tests. */
+  private viewport: { start: number; end: number };
+
+  getVisibleLineRange(): { start: number; end: number } {
+    return { ...this.viewport };
+  }
+
+  scrollLines(delta: number): void {
+    const size = this.viewport.end - this.viewport.start;
+    const maxStart = Math.max(0, this.lines.length - 1 - size);
+    const start = Math.max(0, Math.min(maxStart, this.viewport.start + delta));
+    this.viewport = { start, end: start + size };
+  }
+
+  /** Test helper: place the viewport explicitly. */
+  setViewport(start: number, end: number): void {
+    this.viewport = { start: Math.max(0, start), end: Math.min(end, this.lines.length - 1) };
   }
 
   /** Number of moveVisualLine calls — lets tests assert the gj path is used. */

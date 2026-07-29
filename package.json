@@ -2,7 +2,7 @@
   "name": "lazycode",
   "displayName": "LazyCode \u2014 LazyVim keybindings for VSCode",
   "description": "A from-scratch vim engine (no Neovim, no Lua) with LazyVim-style keybindings mapped onto native VSCode commands.",
-  "version": "1.0.9",
+  "version": "1.0.11",
   "publisher": "sachchidanandk",
   "license": "MIT",
   "engines": {
@@ -58,6 +58,38 @@
         "command": "redo",
         "key": "ctrl+r",
         "when": "editorTextFocus && lazycode.mode == 'Normal'"
+      },
+      {
+        "command": "lazycode.key",
+        "key": "ctrl+d",
+        "when": "editorTextFocus && lazycode.mode != 'Insert'",
+        "args": {
+          "key": "<C-d>"
+        }
+      },
+      {
+        "command": "lazycode.key",
+        "key": "ctrl+u",
+        "when": "editorTextFocus && lazycode.mode != 'Insert'",
+        "args": {
+          "key": "<C-u>"
+        }
+      },
+      {
+        "command": "lazycode.key",
+        "key": "ctrl+f",
+        "when": "editorTextFocus && lazycode.mode != 'Insert'",
+        "args": {
+          "key": "<C-f>"
+        }
+      },
+      {
+        "command": "lazycode.key",
+        "key": "ctrl+b",
+        "when": "editorTextFocus && lazycode.mode != 'Insert'",
+        "args": {
+          "key": "<C-b>"
+        }
       },
       {
         "command": "workbench.action.navigateBack",

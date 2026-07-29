@@ -35,6 +35,11 @@ const MOTIONS: Readonly<Record<string, motions.MotionFn>> = {
   $: motions.lineEnd,
   G: motions.gotoBottom,
   '%': motions.bracketMatch,
+  '{': motions.paragraphBackward,
+  '}': motions.paragraphForward,
+  H: motions.screenHigh,
+  M: motions.screenMiddle,
+  L: motions.screenLow,
 };
 
 const BRACKET_OBJECTS: Readonly<Record<string, [string, string]>> = {
@@ -665,6 +670,19 @@ export class NormalEngine {
         await this.jump(editor, 1);
         return;
 
+      case '<C-d>':
+        await this.pageScroll(editor, 1, false);
+        return;
+      case '<C-u>':
+        await this.pageScroll(editor, -1, false);
+        return;
+      case '<C-f>':
+        await this.pageScroll(editor, 1, true);
+        return;
+      case '<C-b>':
+        await this.pageScroll(editor, -1, true);
+        return;
+
       case '"':
         this.awaitRegisterName = true;
         return;
@@ -779,9 +797,17 @@ export class NormalEngine {
       motionFrom = { ...from, character: this.desiredCol };
     }
 
-    // Jumplist-worthy motions record the pre-jump position.
+    // Jumplist-worthy motions record the pre-jump position (vim: G, gg, %,
+    // {, }, H, M, L are jumps; <C-d>/<C-u>/<C-f>/<C-b> are NOT).
     const isJump =
-      fn === motions.gotoTop || fn === motions.gotoBottom || fn === motions.bracketMatch;
+      fn === motions.gotoTop ||
+      fn === motions.gotoBottom ||
+      fn === motions.bracketMatch ||
+      fn === motions.paragraphForward ||
+      fn === motions.paragraphBackward ||
+      fn === motions.screenHigh ||
+      fn === motions.screenMiddle ||
+      fn === motions.screenLow;
     if (isJump && this.modeManager.is('Normal') && this.pendingOp === undefined) {
       this.recordJump(from);
     }
@@ -823,8 +849,15 @@ export class NormalEngine {
   /** Convert a motion result into [range, linewise] relative to `from`. */
   private motionToRange(from: Position, result: MotionResult): { range: Range; linewise: boolean } {
     if (result.linewise) {
-      const s = Math.min(from.line, result.position.line);
-      const en = Math.max(from.line, result.position.line);
+      let s = Math.min(from.line, result.position.line);
+      let en = Math.max(from.line, result.position.line);
+      // Exclusive linewise (explicit `inclusive: false`, e.g. { }): the
+      // landing line is NOT part of the operated range. Motions with the
+      // flag undefined (j/k/gg/G/H/M/L) stay inclusive, matching vim.
+      if (result.inclusive === false) {
+        if (result.position.line > from.line) en = Math.max(s, en - 1);
+        else if (result.position.line < from.line) s = Math.min(en, s + 1);
+      }
       return {
         range: { start: { line: s, character: 0 }, end: { line: en, character: 0 } },
         linewise: true,
@@ -1204,6 +1237,54 @@ export class NormalEngine {
     }
     await editor.applyEdits(edits);
     this.finalizeChange();
+  }
+
+  /**
+   * <C-d>/<C-u> half-page, <C-f>/<C-b> full-page scrolling. The cursor moves
+   * by the scroll amount and the view scrolls with it, so the cursor keeps
+   * its screen row (vim behavior). With a pending operator these degrade to
+   * a plain linewise motion (no scrolling), matching j/k with operators.
+   */
+  private async pageScroll(editor: EditorContext, direction: 1 | -1, fullPage: boolean): Promise<void> {
+    const count = this.hasCount() ? this.effectiveCount() : 1;
+    const { start, end } = editor.getVisibleLineRange();
+    const height = Math.max(1, end - start + 1);
+    const page = fullPage ? Math.max(1, height - 2) : Math.max(1, Math.floor(height / 2));
+    const amount = page * count;
+    const from = this.cursor(editor);
+    const last = editor.getLineCount() - 1;
+    const targetLine = Math.max(0, Math.min(last, from.line + direction * amount));
+
+    if (this.pendingOp !== undefined) {
+      const op = this.pendingOp;
+      this.clearPending();
+      await this.applyOperator(editor, op, from, {
+        position: { line: targetLine, character: 0 },
+        linewise: true,
+      });
+      return;
+    }
+
+    // Scroll BEFORE moving the cursor: an equal scroll keeps the cursor on
+    // its screen row (vim), and moveCursor's reveal then has nothing to do.
+    // (Reverse order would double-scroll: reveal follows the cursor, then
+    // the scroll would push it off-screen.)
+    editor.scrollLines(targetLine - from.line);
+
+    if (this.modeManager.is('Visual', 'VisualLine')) {
+      const sel = editor.getSelections()[0];
+      const target = this.modeManager.is('VisualLine')
+        ? { line: targetLine, character: 0 }
+        : { line: targetLine, character: from.character };
+      editor.setSelections([{ anchor: sel.anchor, active: target }]);
+      editor.revealPrimaryCursor();
+      this.clearPending(); // consume the count; visual selection continues
+      return;
+    }
+
+    this.moveCursor(editor, { line: targetLine, character: from.character });
+    this.clearPending(); // consume the count
+    this.resetActionKeys(); // scroll is a motion, not a repeatable change
   }
 
   // ── jumplist ───────────────────────────────────────────────────────────────

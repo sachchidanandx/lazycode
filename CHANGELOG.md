@@ -6,6 +6,40 @@ pure-TS vim engine → LazyVim distribution layer → polish → publish.
 
 ---
 
+## [1.0.10] — Paragraph motions, screen motions, page scrolling
+
+Closes the biggest everyday-navigation gaps in the engine.
+
+- **`{` / `}` paragraph motions** — jump to the blank line above/below the
+  current paragraph, with counts (`3}`). Linewise, exclusive with operators
+  (`d}` deletes the paragraph but NOT the blank line below it — the
+  `motionToRange` exclusive-linewise rule is new; `j`/`k`/`gg`/`G` stay
+  inclusive), land on col 0 of blank lines, first non-blank at doc
+  boundaries, fail (no-op) when already at the boundary, and record
+  jumplist entries.
+- **`H` / `M` / `L` screen motions** — first/middle/last visible line, first
+  non-blank, with counts (`3H`, `2L`). Backed by a new
+  `EditorContext.getVisibleLineRange()` (VSCode `visibleRanges`; the fake
+  has a configurable 20-line viewport). Linewise, jumplist-worthy.
+- **`<C-d>` / `<C-u>` half-page, `<C-f>` / `<C-b>` full-page scrolling** —
+  new `EditorContext.scrollLines(delta)` (VSCode `editorScroll` command)
+  plus the engine's `pageScroll`: scroll FIRST, then move the cursor by the
+  same amount, so the cursor keeps its screen row (reverse order would
+  double-scroll via reveal). Counts multiply; clamps at doc bounds; with a
+  pending operator it degrades to a plain inclusive linewise motion
+  (`d<C-d>`); in Visual it extends the selection. Bound in `package.json`
+  via the new generic `lazycode.key` command (Ctrl chords never reach
+  `type`), active in Normal/Visual, native behavior kept in Insert.
+  NOT jumplist motions (matches vim).
+- **`<S-h>` / `<S-l>` and `[b` / `]b` DROPPED** from the keymap table:
+  LazyVim's buffer switchers don't map to VSCode's tab model, `<S-h>`/`<S-l>`
+  would shadow vim's H/L screen motions, and `[b`/`]b` were redundant per
+  user. Tab navigation remains via `gt`/`gT`; `[d`/`]d` diagnostics kept.
+- New `test/navigation.test.ts` (32 tests); `FakeEditorContext` gained a
+  realistic viewport (`getVisibleLineRange`/`scrollLines`/`setViewport`,
+  and `revealPrimaryCursor` now scrolls it like a real editor).
+  **250 tests total.**
+
 ## [1.0.9] — User keymap overrides (wired)
 
 The `lazycode.keymapOverrides` setting (declared since 0.0.1 but never

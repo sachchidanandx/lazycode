@@ -208,3 +208,70 @@ export const bracketMatch: MotionFn = (e, from) => {
   }
   return undefined;
 };
+
+// ── Paragraph motions ({ / }) ────────────────────────────────────────────────
+
+const isBlankLine = (e: EditorContext, line: number): boolean =>
+  e.getLine(line).trim() === '';
+
+/**
+ * Blank landing lines go to col 0; non-blank (doc boundary) to first non-blank.
+ * `inclusive: false` makes operators EXCLUDE the landing blank line (vim:
+ * `{`/`}` are exclusive linewise — `d}` deletes the paragraph, not the
+ * blank below it; contrast `dj`, which is inclusive).
+ */
+const paragraphLanding = (e: EditorContext, line: number): MotionResult => ({
+  position: { line, character: isBlankLine(e, line) ? 0 : firstNonBlankChar(e, line) },
+  linewise: true,
+  inclusive: false,
+});
+
+/** `}` — forward to the end of this/next paragraph: the blank line below it. */
+export const paragraphForward: MotionFn = (e, from, count) => {
+  const last = e.getLineCount() - 1;
+  let line = from.line;
+  for (let n = 0, c = count || 1; n < c; n++) {
+    if (line >= last) break;
+    while (line < last && isBlankLine(e, line)) line++; // skip blank lines
+    while (line < last && !isBlankLine(e, line + 1)) line++; // to paragraph end
+    if (line < last) line++; // land on the blank line below
+  }
+  if (line === from.line) return undefined; // motion failed (vim: beep)
+  return paragraphLanding(e, line);
+};
+
+/** `{` — back to the start of this/previous paragraph: the blank line above it. */
+export const paragraphBackward: MotionFn = (e, from, count) => {
+  let line = from.line;
+  for (let n = 0, c = count || 1; n < c; n++) {
+    if (line <= 0) break;
+    while (line > 0 && isBlankLine(e, line)) line--; // skip blank lines
+    while (line > 0 && !isBlankLine(e, line - 1)) line--; // to paragraph start
+    if (line > 0) line--; // land on the blank line above
+  }
+  if (line === from.line) return undefined; // motion failed (vim: beep)
+  return paragraphLanding(e, line);
+};
+
+// ── Screen motions (H / M / L) ───────────────────────────────────────────────
+
+export const screenHigh: MotionFn = (e, _from, count) => {
+  const { start, end } = e.getVisibleLineRange();
+  const limit = Math.min(end, e.getLineCount() - 1);
+  const line = Math.min(Math.max(0, start) + (count > 0 ? count - 1 : 0), limit);
+  return { position: { line, character: firstNonBlankChar(e, line) }, linewise: true };
+};
+
+export const screenMiddle: MotionFn = (e, _from) => {
+  const { start, end } = e.getVisibleLineRange();
+  const limit = Math.min(end, e.getLineCount() - 1);
+  const line = Math.min(Math.max(0, start) + Math.max(0, Math.floor((end - start) / 2)), limit);
+  return { position: { line, character: firstNonBlankChar(e, line) }, linewise: true };
+};
+
+export const screenLow: MotionFn = (e, _from, count) => {
+  const { start, end } = e.getVisibleLineRange();
+  const limit = Math.min(end, e.getLineCount() - 1);
+  const line = Math.max(Math.max(0, start), limit - (count > 0 ? count - 1 : 0));
+  return { position: { line, character: firstNonBlankChar(e, line) }, linewise: true };
+};

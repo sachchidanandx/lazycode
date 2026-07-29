@@ -33,6 +33,21 @@ export interface EditorContext {
   revealPrimaryCursor(): void;
 
   /**
+   * Logical line range currently visible in the viewport (inclusive end).
+   * Backs the H/M/L screen motions and page-scroll amounts. The fake uses
+   * a configurable viewport; VSCode uses `visibleRanges`.
+   */
+  getVisibleLineRange(): { start: number; end: number };
+
+  /**
+   * Scroll the view by `delta` lines WITHOUT moving the cursor (sign =
+   * direction). Backs <C-d>/<C-u>/<C-f>/<C-b>: the engine moves the cursor
+   * and scrolls the view by the same amount, keeping the cursor on its
+   * screen row like vim. Implementations clamp at document bounds.
+   */
+  scrollLines(delta: number): void;
+
+  /**
    * Move the cursor by DISPLAY (wrapped) lines — the `gj`/`gk` behavior.
    * VSCode implements this via the `cursorMove` command; the fake implements
    * it as a logical-line move (no wrapping headless). `select` extends the
