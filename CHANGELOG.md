@@ -6,6 +6,35 @@ pure-TS vim engine → LazyVim distribution layer → polish → publish.
 
 ---
 
+## [1.1.0] — Visual-mode selection operations (vi" + x, p, r, ~, u, U, J, o)
+
+`vi"` followed by `x` deleted ONE char at the cursor instead of the selected
+quoted text: the engine's `x`/`X`/`s`/`p`/`P`/`r`/`~`/`J` only knew
+Normal-mode (cursor-based) semantics and ignored the visual selection
+entirely. All selection-scoped operations now work, each as ONE undo stop,
+exiting to Normal afterwards:
+
+- **`x`** → delete selection (same as `d`); **`s`** → change selection
+  (same as `c`); both were broken, `d`/`c`/`y`/`>`/`<` already worked
+- **`X` / `D` / `C` / `Y`** → delete/change/yank the selected LINES
+  linewise (previously cursor-line-only or to-line-end)
+- **`p` / `P`** → replace the selection with the register's contents; the
+  deleted selection moves into the unnamed register (vim swap semantics,
+  so `viwp` twice swaps back). One delete+insert batch
+- **`r{char}`** → overwrite every selected character with `char`, newlines
+  preserved, multi-line selections supported
+- **`~` / `u` / `U`** → swap case / lowercase / uppercase the selection
+  (Normal-mode undo still lives in the keymap table → native `undo`; the
+  engine only sees `u` in Visual)
+- **`J`** → join every line covered by the selection (single-line
+  selection behaves like Normal `J`); `joinLines` refactored into a shared
+  `joinLineRange(start, end)`
+- **`o` / `O`** → jump the cursor to the other end of the selection
+  (previously opened a new line while in Visual — very wrong)
+
+Visual `x` composes with dot-repeat (`vi"x` … `f".` deletes the next
+quoted string). 21 new tests in `test/visual.test.ts`. **283 tests total.**
+
 ## [1.0.13] — Mode-scoped keybindings (insert-typing shadowing fix)
 
 All keymaps were bound into a single shared trie, so Normal-only bindings

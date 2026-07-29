@@ -107,7 +107,14 @@ headless).
 
 ## Misc engine actions
 
-- `r{char}` replace, `~` case toggle, `J` join (indent-aware, one undo stop)
+- `r{char}` replace, `~` case toggle, `J` join (indent-aware, one undo stop).
+  In Visual mode these are selection-scoped: `x`/`s` alias `d`/`c`,
+  `X`/`D`/`C`/`Y` go linewise over the selected lines, `r` overwrites every
+  selected char, `~`/`u`/`U` swap/lower/upper case, `J` joins the selected
+  lines (shared `joinLineRange`), `p`/`P` paste over the selection (the
+  deleted selection lands in the unnamed register, vim swap semantics), and
+  `o`/`O` swap the cursor to the other end of the selection. Every visual
+  operation is one `applyEdits` batch and exits to Normal.
 - `>`/`<` are real operators: `>>`, `>j`, `>ip`, visual `>` — 4-space shifts,
   empty lines skipped, dot-repeatable
 - Jumplist: `gg`/`G`/`%`/marks/searches record origins; `<C-o>`/`<C-i>` walk

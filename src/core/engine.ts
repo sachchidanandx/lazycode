@@ -1,6 +1,6 @@
 import { EditorContext } from './editorContext';
 import { ModeManager } from './mode/modeManager';
-import { Position, Range, Selection, cursorAt } from './types';
+import { Position, Range, Selection, TextEdit, cursorAt } from './types';
 import * as motions from './actions/motions';
 import { MotionResult, FindArg, clampNormalCursor, firstNonBlankChar } from './actions/motions';
 import { wordObject, quoteObject, bracketObject, paragraphObject } from './actions/textObjects';
@@ -426,7 +426,11 @@ export class NormalEngine {
       this.awaitReplace = false;
       const char = canonicalToChar(key);
       if (char !== undefined && char !== '\n') {
-        await this.replaceChar(editor, char);
+        if (this.modeManager.is('Visual', 'VisualLine')) {
+          await this.replaceVisualSelection(editor, char);
+        } else {
+          await this.replaceChar(editor, char);
+        }
       } else {
         this.resetActionKeys();
       }
@@ -602,31 +606,83 @@ export class NormalEngine {
       }
       case 'o':
       case 'O':
+        if (this.modeManager.is('Visual', 'VisualLine')) {
+          // vim: o/O in visual mode jumps the cursor to the other end of
+          // the selection (swapping anchor and active).
+          const sel = editor.getSelections()[0];
+          editor.setSelections([{ anchor: sel.active, active: sel.anchor }]);
+          editor.revealPrimaryCursor();
+          this.clearPending();
+          this.resetActionKeys();
+          return;
+        }
         await this.openLine(editor, key === 'o');
         return;
 
       case 'x':
+        // Visual x: delete the selection (same as d).
+        if (this.modeManager.is('Visual', 'VisualLine')) {
+          await this.onOperatorKey(editor, 'd');
+          return;
+        }
         await this.deleteChars(editor, 1);
         return;
       case 'X':
+        // Visual X: delete the selected LINES (same as D).
+        if (this.modeManager.is('Visual', 'VisualLine')) {
+          const { range } = this.visualRange(editor, true);
+          this.clearPending();
+          await this.applyOperatorToRange(editor, 'd', range, true);
+          return;
+        }
         await this.deleteChars(editor, -1);
         return;
       case 's':
+        // Visual s: change the selection (same as c).
+        if (this.modeManager.is('Visual', 'VisualLine')) {
+          await this.onOperatorKey(editor, 'c');
+          return;
+        }
         await this.changeChars(editor);
         return;
 
       case 'D':
+        // Visual D: delete the selected lines linewise.
+        if (this.modeManager.is('Visual', 'VisualLine')) {
+          const { range } = this.visualRange(editor, true);
+          this.clearPending();
+          await this.applyOperatorToRange(editor, 'd', range, true);
+          return;
+        }
         await this.operateWithMotion(editor, 'd', motions.lineEnd);
         return;
       case 'C':
+        // Visual C: change the selected lines linewise.
+        if (this.modeManager.is('Visual', 'VisualLine')) {
+          const { range } = this.visualRange(editor, true);
+          this.clearPending();
+          await this.applyOperatorToRange(editor, 'c', range, true);
+          return;
+        }
         await this.operateWithMotion(editor, 'c', motions.lineEnd);
         return;
       case 'Y':
+        // Visual Y: yank the selected lines linewise.
+        if (this.modeManager.is('Visual', 'VisualLine')) {
+          const { range } = this.visualRange(editor, true);
+          this.clearPending();
+          await this.applyOperatorToRange(editor, 'y', range, true);
+          return;
+        }
         await this.linewiseOperator(editor, 'y');
         return;
 
       case 'p':
       case 'P':
+        if (this.modeManager.is('Visual', 'VisualLine')) {
+          await this.pasteOverSelection(editor);
+          return;
+        }
         await this.paste(editor, key === 'p');
         return;
 
@@ -661,7 +717,30 @@ export class NormalEngine {
         await this.toggleCase(editor);
         return;
 
+      case 'u':
+        // Visual u: lowercase the selection (Normal-mode undo lives in the
+        // keymap table → native `undo`, so the engine only ever sees this
+        // in Visual/VisualLine).
+        if (this.modeManager.is('Visual', 'VisualLine')) {
+          await this.transformVisualCase(editor, 'lower');
+          return;
+        }
+        this.resetActionKeys();
+        return;
+      case 'U':
+        // Visual U: uppercase the selection.
+        if (this.modeManager.is('Visual', 'VisualLine')) {
+          await this.transformVisualCase(editor, 'upper');
+          return;
+        }
+        this.resetActionKeys();
+        return;
+
       case 'J':
+        if (this.modeManager.is('Visual', 'VisualLine')) {
+          await this.joinVisualLines(editor);
+          return;
+        }
         await this.joinLines(editor);
         return;
 
@@ -1223,6 +1302,10 @@ export class NormalEngine {
   }
 
   private async toggleCase(editor: EditorContext): Promise<void> {
+    if (this.modeManager.is('Visual', 'VisualLine')) {
+      await this.transformVisualCase(editor, 'swap');
+      return;
+    }
     const count = this.hasCount() ? this.effectiveCount() : 1;
     this.clearPending();
     const cur = this.cursor(editor);
@@ -1247,15 +1330,24 @@ export class NormalEngine {
     const count = this.hasCount() ? Math.max(1, this.effectiveCount()) : 1;
     this.clearPending();
     const cur = this.cursor(editor);
+    await this.joinLineRange(editor, cur.line, cur.line + count);
+  }
+
+  /** Join [startLine, endLineInclusive] into startLine, vim-style. */
+  private async joinLineRange(
+    editor: EditorContext,
+    startLine: number,
+    endLineInclusive: number,
+  ): Promise<void> {
     const lineCount = editor.getLineCount();
-    if (cur.line >= lineCount - 1) {
+    if (startLine >= lineCount - 1) {
       this.resetActionKeys();
       return; // last line: J does nothing
     }
-    const joins = Math.min(count, lineCount - 1 - cur.line);
+    const joins = Math.min(endLineInclusive - startLine, lineCount - 1 - startLine);
     const edits = [];
     for (let i = 0; i < joins; i++) {
-      const line = cur.line + i;
+      const line = startLine + i;
       const nextLine = line + 1;
       const thisLen = editor.getLine(line).length;
       const nextText = editor.getLine(nextLine);
@@ -1270,7 +1362,136 @@ export class NormalEngine {
       });
     }
     await editor.applyEdits(edits);
+    if (this.modeManager.is('Visual', 'VisualLine')) this.modeManager.transition('Normal');
     this.finalizeChange();
+  }
+
+  /** Visual J: join every line covered by the selection. */
+  private async joinVisualLines(editor: EditorContext): Promise<void> {
+    const { range } = this.visualRange(editor, true);
+    this.clearPending();
+    // A single-line selection behaves like Normal J (joins the next line).
+    const last = Math.max(range.end.line, range.start.line + 1);
+    await this.joinLineRange(editor, range.start.line, last);
+  }
+
+  /**
+   * Visual r{char}: overwrite every selected character with `char`
+   * (newlines are preserved). One edit batch, exits to Normal.
+   */
+  private async replaceVisualSelection(editor: EditorContext, char: string): Promise<void> {
+    const { range } = this.visualRange(editor, this.modeManager.is('VisualLine'));
+    this.clearPending();
+    const edits = [];
+    for (let line = range.start.line; line <= range.end.line; line++) {
+      const len = editor.getLine(line).length;
+      const from = line === range.start.line ? range.start.character : 0;
+      const to = line === range.end.line ? Math.min(range.end.character, len) : len;
+      if (to > from) {
+        edits.push({
+          kind: 'replace' as const,
+          range: { start: { line, character: from }, end: { line, character: to } },
+          text: char.repeat(to - from),
+        });
+      }
+    }
+    if (edits.length === 0) {
+      this.resetActionKeys();
+      return;
+    }
+    await editor.applyEdits(edits);
+    editor.setSelections([cursorAt(clampNormalCursor(editor, range.start))]);
+    editor.revealPrimaryCursor();
+    if (this.modeManager.is('Visual', 'VisualLine')) this.modeManager.transition('Normal');
+    this.finalizeChange();
+  }
+
+  /**
+   * Visual ~ / u / U: swap case, lowercase, or uppercase the selection.
+   * One edit batch per line, cursor to selection start, exits to Normal.
+   */
+  private async transformVisualCase(
+    editor: EditorContext,
+    how: 'swap' | 'lower' | 'upper',
+  ): Promise<void> {
+    const { range } = this.visualRange(editor, this.modeManager.is('VisualLine'));
+    this.clearPending();
+    const edits = [];
+    for (let line = range.start.line; line <= range.end.line; line++) {
+      const len = editor.getLine(line).length;
+      const from = line === range.start.line ? range.start.character : 0;
+      const to = line === range.end.line ? Math.min(range.end.character, len) : len;
+      if (to <= from) continue;
+      const src = editor.getLine(line).slice(from, to);
+      const out =
+        how === 'lower'
+          ? src.toLowerCase()
+          : how === 'upper'
+            ? src.toUpperCase()
+            : [...src]
+                .map((ch) => (ch === ch.toLowerCase() ? ch.toUpperCase() : ch.toLowerCase()))
+                .join('');
+      if (out !== src) {
+        edits.push({
+          kind: 'replace' as const,
+          range: { start: { line, character: from }, end: { line, character: to } },
+          text: out,
+        });
+      }
+    }
+    if (edits.length > 0) await editor.applyEdits(edits);
+    editor.setSelections([cursorAt(clampNormalCursor(editor, range.start))]);
+    editor.revealPrimaryCursor();
+    if (this.modeManager.is('Visual', 'VisualLine')) this.modeManager.transition('Normal');
+    this.finalizeChange();
+  }
+
+  /**
+   * Visual p/P: replace the selection with the register's contents (vim
+   * puts the deleted selection into the unnamed register in the process).
+   * One edit batch, exits to Normal.
+   */
+  private async pasteOverSelection(editor: EditorContext): Promise<void> {
+    const reg = this.registers[this.pendingRegister ?? '"'];
+    if (!reg) {
+      this.clearPending();
+      this.resetActionKeys();
+      return;
+    }
+    const linewise = this.modeManager.is('VisualLine');
+    const { range } = this.visualRange(editor, linewise);
+    const deletedText = editor.getText(range) + (linewise ? '\n' : '');
+    this.clearPending();
+
+    // Batch order matters: deletes are applied before inserts at the same
+    // position (positions refer to the pre-edit document in both adapters).
+    const edits: TextEdit[] = [{ kind: 'delete', range }];
+    let cursor: Position;
+    if (reg.linewise) {
+      const body = reg.text.endsWith('\n') ? reg.text : reg.text + '\n';
+      edits.push({ kind: 'insert', at: { line: range.start.line, character: 0 }, text: body });
+      const firstLine = body.split('\n')[0];
+      cursor = {
+        line: range.start.line,
+        character: Math.max(0, firstLine.length - firstLine.trimStart().length),
+      };
+    } else {
+      edits.push({ kind: 'insert', at: range.start, text: reg.text });
+      const lines = reg.text.split('\n');
+      cursor =
+        lines.length === 1
+          ? { line: range.start.line, character: range.start.character + reg.text.length - 1 }
+          : {
+              line: range.start.line + lines.length - 1,
+              character: Math.max(0, lines[lines.length - 1].length - 1),
+            };
+    }
+    await editor.applyEdits(edits);
+    this.registers['"'] = { text: deletedText, linewise };
+    editor.setSelections([cursorAt(clampNormalCursor(editor, cursor))]);
+    editor.revealPrimaryCursor();
+    if (this.modeManager.is('Visual', 'VisualLine')) this.modeManager.transition('Normal');
+    if (!this.replaying) this.finalizeChange();
   }
 
   /**
