@@ -6,6 +6,17 @@ pure-TS vim engine → LazyVim distribution layer → polish → publish.
 
 ---
 
+## [1.0.12] — Visual-mode text objects (viw, va{, vip, …)
+
+`i`/`a` in Visual mode were dispatched as INSERT commands, so `vi{`
+literally typed a brace. They are now text-object prefixes in Visual mode:
+the object is selected and Visual mode continues (vim behavior). Linewise
+objects (`vip`/`vap`) switch to VisualLine. Multi-line range ends are
+computed char-exactly: a range ending at char 0 of the closing-bracket
+line selects through the end of the previous line instead. Object forms
+cover `w`, quotes, all bracket pairs (incl. `b`/`B` aliases), and `p`.
+10 new tests in `test/visual.test.ts`. **260 tests total.**
+
 ## [1.0.10] — Paragraph motions, screen motions, page scrolling
 
 Closes the biggest everyday-navigation gaps in the engine.

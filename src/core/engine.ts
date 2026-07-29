@@ -577,6 +577,12 @@ export class NormalEngine {
           this.pendingTO = key;
           return;
         }
+        // Visual-mode text object (viw, va{, vip, …): i/a is an object
+        // prefix, NOT an insert command.
+        if (this.modeManager.is('Visual', 'VisualLine')) {
+          this.pendingTO = key;
+          return;
+        }
         await this.enterInsert(editor, key);
         return;
 
@@ -1055,9 +1061,37 @@ export class NormalEngine {
     this.clearPending();
     if (op !== undefined) {
       await this.applyOperatorToRange(editor, op, range, linewise);
-    } else {
-      this.resetActionKeys();
+      return;
     }
+    if (this.modeManager.is('Visual', 'VisualLine')) {
+      // Visual text object: select the object, stay in Visual. Linewise
+      // objects force VisualLine (vim: vip selects whole lines).
+      if (linewise) {
+        if (!this.modeManager.is('VisualLine')) this.modeManager.transition('VisualLine');
+        editor.setSelections([
+          { anchor: range.start, active: { line: range.end.line, character: 0 } },
+        ]);
+      } else {
+        if (!this.modeManager.is('Visual')) this.modeManager.transition('Visual');
+        // Range end is exclusive; charwise visual includes the active char.
+        // When a multi-line range ends at char 0 (e.g. vi{ on `{\n…\n}`), the
+        // last included char is the END of the previous line — not the
+        // closing-bracket line.
+        let active: Position;
+        if (editor.offsetAt(range.end) <= editor.offsetAt(range.start)) {
+          active = range.start; // empty inner object (e.g. i" in "")
+        } else if (range.end.character === 0 && range.end.line > range.start.line) {
+          const prev = range.end.line - 1;
+          active = { line: prev, character: Math.max(0, editor.getLine(prev).length - 1) };
+        } else {
+          active = { line: range.end.line, character: Math.max(0, range.end.character - 1) };
+        }
+        editor.setSelections([{ anchor: range.start, active }]);
+      }
+      editor.revealPrimaryCursor();
+      return; // keep accumulating keys — the visual action is still open
+    }
+    this.resetActionKeys();
   }
 
   // ── small editing actions ──────────────────────────────────────────────────

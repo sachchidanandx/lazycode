@@ -72,3 +72,76 @@ describe('visual inclusivity (cursor char is always included)', () => {
     expect(mm.current).toBe('Insert');
   });
 });
+
+describe('visual text objects (viw, va{, vip, …)', () => {
+  const sel = () => ed.getSelections()[0];
+
+  it('viw selects the word, stays in Visual', async () => {
+    await type('viw');
+    expect(mm.current).toBe('Visual');
+    expect(sel()).toEqual({ anchor: { line: 0, character: 0 }, active: { line: 0, character: 2 } });
+  });
+
+  it('vaw includes trailing blanks', async () => {
+    await type('vaw');
+    expect(sel()).toEqual({ anchor: { line: 0, character: 0 }, active: { line: 0, character: 3 } });
+  });
+
+  it('vi{ selects inside braces (multi-line)', async () => {
+    setup('if (x) {\n  body();\n}', { line: 1, character: 3 });
+    await type('vi{');
+    expect(mm.current).toBe('Visual');
+    // from after `{` to end of the body line — closing brace excluded
+    expect(sel()).toEqual({ anchor: { line: 0, character: 8 }, active: { line: 1, character: 8 } });
+  });
+
+  it('va{ includes the braces', async () => {
+    setup('if (x) {\n  body();\n}', { line: 1, character: 3 });
+    await type('va{');
+    expect(sel()).toEqual({ anchor: { line: 0, character: 7 }, active: { line: 2, character: 0 } });
+  });
+
+  it('vi" selects inside quotes', async () => {
+    setup('say "hello world" loudly', { line: 0, character: 6 });
+    await type('vi"');
+    expect(sel()).toEqual({ anchor: { line: 0, character: 5 }, active: { line: 0, character: 15 } });
+  });
+
+  it('vip selects the paragraph as VisualLine', async () => {
+    setup('one\ntwo\n\nthree', { line: 1, character: 1 });
+    await type('vip');
+    expect(mm.current).toBe('VisualLine');
+    expect(sel().anchor).toEqual({ line: 0, character: 0 });
+    expect(sel().active.line).toBe(1);
+  });
+
+  it('viw + y yanks exactly the word', async () => {
+    await type('viwy');
+    expect(engine.getRegister()).toEqual({ text: 'foo', linewise: false });
+    expect(mm.current).toBe('Normal');
+  });
+
+  it('viw + d deletes exactly the word', async () => {
+    await type('viwd');
+    expect(text()).toBe(' bar baz\nsecond line here\nthird line');
+    expect(mm.current).toBe('Normal');
+  });
+
+  it('operator text objects still work (di{, ciw)', async () => {
+    setup('if (x) {\n  body();\n}', { line: 1, character: 3 });
+    await type('di{');
+    expect(text()).toBe('if (x) {}');
+    setup(TEXT);
+    await type('ciw');
+    expect(mm.current).toBe('Insert');
+    expect(text()).toBe(' bar baz\nsecond line here\nthird line');
+  });
+
+  it('unknown object in visual stays in Visual and selects nothing new', async () => {
+    await type('vll');
+    const before = sel();
+    await type('iz'); // no 'z' text object
+    expect(mm.current).toBe('Visual');
+    expect(sel()).toEqual(before);
+  });
+});
