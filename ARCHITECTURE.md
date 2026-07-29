@@ -32,7 +32,7 @@ keypress ──► keystrokeFromTypedText() ──► canonical key ("<C-w>", "g
      ▼
 KeystrokeRouter: mode gate (Insert → passthrough unless bound)
      │           pendingKeys += key
-     │           BindingTrie.match(pendingKeys)
+     │           trieForMode(currentMode).match(pendingKeys)
      ▼
 Binding = action (engine) | vscode command (delegate)
      │
@@ -58,6 +58,13 @@ prefix — and composes three kinds of pure functions:
 The router claims leader/IDE bindings via the trie; everything else falls
 through to the engine (`engineFallback`), so `gg` (engine) and `gd` (trie)
 coexist on the same `g` prefix.
+
+**Tries are mode-scoped.** `src/extension.ts` builds one `BindingTrie` per
+mode from `KeymapEntry.modes` (default Normal-only) and injects
+`trieForMode(mode)` into the router, which resolves the trie per keystroke.
+A Normal binding (e.g. `n` → next match) therefore can never shadow plain
+typing in Insert mode, and only Insert-scoped bindings (e.g. a `jk` escape)
+are visible there.
 
 ### Dot-repeat, registers, marks
 
@@ -119,8 +126,9 @@ headless).
 
 `src/lazyvim/keymaps.ts` is a declarative table mirroring
 `lazyvim/config/keymaps.lua`: `{ keys, binding, description, modes }`.
-`<space>` is the leader. The same table will feed the which-key popup
-(via `BindingTrie.bindingsWithPrefix`) and auto-generated docs.
+`<space>` is the leader. `modes` scopes each entry (default Normal-only) and
+drives both the per-mode tries the router matches against and the which-key
+popup's hints (`buildWhichKeyItems` filters by current mode).
 
 ## Testing
 

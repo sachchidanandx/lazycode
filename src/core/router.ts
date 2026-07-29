@@ -1,6 +1,6 @@
 import { BindingTrie } from './input/bindingTrie';
 import { EditorContext } from './editorContext';
-import { ModeManager } from './mode/modeManager';
+import { Mode, ModeManager } from './mode/modeManager';
 
 /**
  * A resolved keybinding: either an engine action (vim semantics, implemented
@@ -17,7 +17,13 @@ export type VscodeCommandExecutor = (command: string, args?: unknown[]) => Promi
 
 export interface RouterDeps {
   readonly modeManager: ModeManager;
-  readonly trie: BindingTrie<Binding>;
+  /**
+   * Resolves the binding trie for the current mode. Keymaps are mode-scoped
+   * (KeymapEntry.modes, default Normal-only): a Normal-mode binding like `n`
+   * must NOT shadow typing `n` in Insert mode, so each mode gets its own trie
+   * containing only the bindings active in that mode.
+   */
+  readonly trieForMode: (mode: Mode) => BindingTrie<Binding>;
   readonly executeCommand: VscodeCommandExecutor;
   /** Called when a binding can't be handled — used to pass text through in Insert mode. */
   readonly defaultType: (text: string) => Promise<unknown>;
@@ -87,7 +93,8 @@ export class KeystrokeRouter {
   }
 
   async handleKeystroke(key: string, rawText: string, editor: EditorContext): Promise<KeystrokeResult> {
-    const { modeManager, trie, executeCommand, defaultType, engineFallback } = this.deps;
+    const { modeManager, executeCommand, defaultType, engineFallback } = this.deps;
+    const trie = this.deps.trieForMode(modeManager.current);
     // Leader rewrite: only at sequence start (so '<leader><space>' still works
     // — the second <space> must stay a literal <space>).
     const effectiveKey =

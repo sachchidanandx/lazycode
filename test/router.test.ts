@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { BindingTrie } from '../src/core/input/bindingTrie';
 import { Binding, KeystrokeRouter } from '../src/core/router';
-import { ModeManager } from '../src/core/mode/modeManager';
+import { Mode, ModeManager } from '../src/core/mode/modeManager';
 import { FakeEditorContext } from './fakeEditorContext';
 
 function setup() {
@@ -9,7 +9,12 @@ function setup() {
   const trie = new BindingTrie<Binding>();
   const executeCommand = vi.fn().mockResolvedValue(undefined);
   const defaultType = vi.fn().mockResolvedValue(undefined);
-  const router = new KeystrokeRouter({ modeManager, trie, executeCommand, defaultType });
+  const router = new KeystrokeRouter({
+    modeManager,
+    trieForMode: () => trie,
+    executeCommand,
+    defaultType,
+  });
   const editor = new FakeEditorContext('hello world');
   return { modeManager, trie, executeCommand, defaultType, router, editor };
 }
@@ -95,7 +100,7 @@ describe('KeystrokeRouter', () => {
     let pending = true; // simulate engine awaiting its find-char argument
     const router = new KeystrokeRouter({
       modeManager,
-      trie,
+      trieForMode: () => trie,
       executeCommand,
       defaultType,
       engineFallback,
@@ -112,6 +117,55 @@ describe('KeystrokeRouter', () => {
     pending = false;
     await router.handleKeystroke('/', '/', editor);
     expect(executeCommand).toHaveBeenCalledWith('actions.find', undefined);
+  });
+
+  it('does NOT fire Normal-only bindings in Insert mode (typing `n` must not open find)', async () => {
+    // Regression: a single shared trie let Normal bindings (n → next match)
+    // shadow plain typing in Insert mode. Per-mode tries fix this.
+    const modeManager = new ModeManager();
+    const normalTrie = new BindingTrie<Binding>();
+    normalTrie.bind(['n'], { kind: 'vscode', command: 'editor.action.nextMatchFindAction' });
+    const tries = new Map<Mode, BindingTrie<Binding>>([['Normal', normalTrie]]);
+    const emptyTrie = new BindingTrie<Binding>();
+    const executeCommand = vi.fn().mockResolvedValue(undefined);
+    const defaultType = vi.fn().mockResolvedValue(undefined);
+    const router = new KeystrokeRouter({
+      modeManager,
+      trieForMode: (mode) => tries.get(mode) ?? emptyTrie,
+      executeCommand,
+      defaultType,
+    });
+    const editor = new FakeEditorContext('hello world');
+
+    modeManager.transition('Insert');
+    const result = await router.handleKeystroke('n', 'n', editor);
+    expect(result).toEqual({ type: 'passthrough' });
+    expect(defaultType).toHaveBeenCalledWith('n');
+    expect(executeCommand).not.toHaveBeenCalled();
+  });
+
+  it('does NOT buffer Normal-mode prefixes in Insert mode (typing `gd` types literally)', async () => {
+    const modeManager = new ModeManager();
+    const normalTrie = new BindingTrie<Binding>();
+    normalTrie.bind(['g', 'd'], { kind: 'vscode', command: 'editor.action.revealDefinition' });
+    const tries = new Map<Mode, BindingTrie<Binding>>([['Normal', normalTrie]]);
+    const emptyTrie = new BindingTrie<Binding>();
+    const executeCommand = vi.fn().mockResolvedValue(undefined);
+    const defaultType = vi.fn().mockResolvedValue(undefined);
+    const router = new KeystrokeRouter({
+      modeManager,
+      trieForMode: (mode) => tries.get(mode) ?? emptyTrie,
+      executeCommand,
+      defaultType,
+    });
+    const editor = new FakeEditorContext('hello world');
+
+    modeManager.transition('Insert');
+    expect(await router.handleKeystroke('g', 'g', editor)).toEqual({ type: 'passthrough' });
+    expect(await router.handleKeystroke('d', 'd', editor)).toEqual({ type: 'passthrough' });
+    expect(defaultType).toHaveBeenCalledWith('g');
+    expect(defaultType).toHaveBeenCalledWith('d');
+    expect(executeCommand).not.toHaveBeenCalled();
   });
 
   it('swallows unknown Normal-mode keys (vim behavior)', async () => {

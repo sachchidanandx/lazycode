@@ -6,6 +6,23 @@ pure-TS vim engine → LazyVim distribution layer → polish → publish.
 
 ---
 
+## [1.0.13] — Mode-scoped keybindings (insert-typing shadowing fix)
+
+All keymaps were bound into a single shared trie, so Normal-only bindings
+leaked into Insert mode: typing `n` opened the find widget (`nextMatch`),
+typing `gd`/`gt`/`u` fired goto-definition / next-tab / undo instead of
+inserting text.
+
+- **Fix**: bindings are now mode-scoped. `src/extension.ts` builds one
+  `BindingTrie` per mode (populated from `KeymapEntry.modes`, default
+  Normal-only) and hands the router a `trieForMode(mode)` resolver;
+  `RouterDeps.trie` became `trieForMode`. In Insert mode only Insert-scoped
+  bindings (e.g. a user's `jk` escape) can match — Normal bindings are
+  invisible, so plain typing always passes through, including keys that are
+  Normal-mode *prefixes* like `g`.
+- Two regression tests in `test/router.test.ts` (`n` passes through,
+  `gd` types literally in Insert mode). **262 tests total.**
+
 ## [1.0.12] — Visual-mode text objects (viw, va{, vip, …)
 
 `i`/`a` in Visual mode were dispatched as INSERT commands, so `vi{`

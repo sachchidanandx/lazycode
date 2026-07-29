@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { ModeManager } from './core/mode/modeManager';
+import { Mode, ModeManager } from './core/mode/modeManager';
 import { BindingTrie } from './core/input/bindingTrie';
 import { Binding, KeystrokeRouter } from './core/router';
 import { keystrokeFromTypedText } from './core/input/keyNotation';
@@ -65,10 +65,23 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.workspace.getConfiguration('lazycode').get<Record<string, unknown>>('keymapOverrides', {}),
   );
   const effectiveKeymaps = mergeKeymapOverrides(parsedKeymaps(), overrides);
-  const trie = new BindingTrie<Binding>();
+  // Bindings are mode-scoped (KeymapEntry.modes, default Normal-only): build
+  // one trie per mode so a Normal binding (e.g. `n` → next match) can never
+  // shadow plain typing in Insert mode.
+  const tries = new Map<Mode, BindingTrie<Binding>>();
   for (const { keys, entry } of effectiveKeymaps) {
-    trie.bind(keys, entry.binding);
+    const modes: readonly Mode[] = entry.modes ?? ['Normal'];
+    for (const mode of modes) {
+      let trie = tries.get(mode);
+      if (!trie) {
+        trie = new BindingTrie<Binding>();
+        tries.set(mode, trie);
+      }
+      trie.bind(keys, entry.binding);
+    }
   }
+  const emptyTrie = new BindingTrie<Binding>();
+  const trieForMode = (mode: Mode): BindingTrie<Binding> => tries.get(mode) ?? emptyTrie;
 
   const executeCommand = (command: string, args?: unknown[]): Promise<unknown> =>
     Promise.resolve(vscode.commands.executeCommand(command, ...(args ?? [])));
@@ -124,7 +137,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const router = new KeystrokeRouter({
     modeManager,
-    trie,
+    trieForMode,
     executeCommand,
     defaultType,
     engineFallback: (keys, editor) => engine.handleKeys(keys, editor),
