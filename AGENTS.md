@@ -47,3 +47,18 @@ The changelog heading and `package.json` version must always match.
 - Bug fixes come with a regression test; features come with coverage in the
   appropriate `test/*.test.ts` file. Keep the engine headless-testable
   (no `vscode` imports outside `extension.ts` and `src/vs/`).
+
+## 6. Install every change into VSCode
+
+- **Every** completed change — fix, feature, or chore that affects the
+  shipped extension — ends with packaging and installing the new version
+  into VSCode so the user always runs the latest build:
+
+  ```sh
+  npm run release
+  ```
+
+  This runs the tests, bundles with esbuild, packages the `.vsix` with
+  `vsce`, and installs it via `code --install-extension … --force`
+  (user reloads the window to activate it). Do this AFTER the version bump
+  so the installed `.vsix` matches `package.json`.
