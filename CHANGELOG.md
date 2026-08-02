@@ -6,6 +6,16 @@ pure-TS vim engine → LazyVim distribution layer → polish → publish.
 
 ---
 
+## [1.1.1] — Marketplace categories metadata fix
+
+`package.json` listed the extension under the `Editing` category, which
+is not a valid VSCode marketplace category for a keymap extension and
+hurt discoverability. Categories are now `Keymaps`, `Vim`, `LazyVim`.
+No behavioral changes; all 283 tests still pass. Also installs the
+packaged `.vsix` into VSCodium alongside VSCode.
+
+---
+
 ## [1.1.0] — Visual-mode selection operations (vi" + x, p, r, ~, u, U, J, o)
 
 `vi"` followed by `x` deleted ONE char at the cursor instead of the selected
